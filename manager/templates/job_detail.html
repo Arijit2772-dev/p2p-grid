@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block title %}Job Details{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-file-code"></i> {{ job.title }}</h2>
+    <a href="{{ url_for('jobs') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Jobs
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <!-- Job Info -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Job Information</span>
+                <span class="badge badge-status badge-{{ job.status }} fs-6">
+                    {{ job.status|upper }}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>ID:</strong> <code>{{ job.id }}</code></p>
+                        <p><strong>Created:</strong> {{ job.created_at if job.created_at else 'N/A' }}</p>
+                        {% if job.started_at %}
+                        <p><strong>Started:</strong> {{ job.started_at }}</p>
+                        {% endif %}
+                        {% if job.completed_at %}
+                        <p><strong>Completed:</strong> {{ job.completed_at }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Cost:</strong> {{ job.credit_cost }} credits</p>
+                        <p><strong>Reward:</strong> {{ job.credit_reward }} credits</p>
+                        <p><strong>Priority:</strong> {{ job.priority }}/10</p>
+                        <p><strong>Timeout:</strong> {{ job.timeout_seconds }}s</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resources -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-motherboard"></i> Resource Requirements
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="stat-card primary">
+                            <h3>{{ job.cpu_required }}</h3>
+                            <small class="text-muted">CPU Cores</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="stat-card success">
+                            <h3>{{ job.ram_required_gb }}</h3>
+                            <small class="text-muted">GB RAM</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="stat-card warning">
+                            <h3>{% if job.gpu_required %}Yes{% else %}No{% endif %}</h3>
+                            <small class="text-muted">GPU Required</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Code -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-code-slash"></i> Source Code
+            </div>
+            <div class="card-body p-0">
+                <pre class="mb-0" style="max-height: 400px;">{{ job.code }}</pre>
+            </div>
+        </div>
+
+        {% if job.requirements %}
+        <!-- Dependencies -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-box-seam"></i> Dependencies
+            </div>
+            <div class="card-body">
+                <pre class="mb-0">{{ job.requirements }}</pre>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Output Files (Downloads) -->
+        <div class="card mb-4" id="files-card">
+            <div class="card-header">
+                <i class="bi bi-download"></i> Output Files
+            </div>
+            <div class="card-body" id="files-container">
+                <div class="text-center text-muted py-3" id="files-loading">
+                    <i class="bi bi-hourglass-split"></i> Loading files...
+                </div>
+            </div>
+        </div>
+
+        <!-- Console Output -->
+        {% if job.result_output or job.error_log %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-terminal"></i> Console Output
+            </div>
+            <div class="card-body p-0">
+                {% if job.result_output %}
+                <pre class="mb-0">{{ job.result_output }}</pre>
+                {% endif %}
+                {% if job.error_log %}
+                <div class="bg-danger text-white p-3">
+                    <strong>Error:</strong>
+                    <pre class="text-white mb-0">{{ job.error_log }}</pre>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-4">
+        <!-- Status Timeline -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-clock-history"></i> Timeline
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    <div class="timeline-item {% if job.created_at %}active{% endif %}">
+                        <div class="timeline-marker bg-primary"></div>
+                        <div class="timeline-content">
+                            <strong>Created</strong>
+                            <small class="d-block text-muted">{{ job.created_at[:16] if job.created_at else 'N/A' }}</small>
+                        </div>
+                    </div>
+                    <div class="timeline-item {% if job.started_at %}active{% endif %}">
+                        <div class="timeline-marker {% if job.started_at %}bg-info{% else %}bg-secondary{% endif %}"></div>
+                        <div class="timeline-content">
+                            <strong>Started</strong>
+                            <small class="d-block text-muted">{{ job.started_at[:16] if job.started_at else 'Waiting...' }}</small>
+                        </div>
+                    </div>
+                    <div class="timeline-item {% if job.completed_at %}active{% endif %}">
+                        <div class="timeline-marker {% if job.status == 'completed' %}bg-success{% elif job.status == 'failed' %}bg-danger{% else %}bg-secondary{% endif %}"></div>
+                        <div class="timeline-content">
+                            <strong>Completed</strong>
+                            <small class="d-block text-muted">{{ job.completed_at[:16] if job.completed_at else 'Pending...' }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if job.worker_id %}
+        <!-- Worker Info -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-pc-display"></i> Assigned Worker
+            </div>
+            <div class="card-body">
+                <p><strong>Worker ID:</strong></p>
+                <code>{{ job.worker_id }}</code>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    .timeline-item {
+        position: relative;
+        padding-bottom: 20px;
+        border-left: 2px solid #dee2e6;
+        padding-left: 20px;
+        margin-left: 10px;
+    }
+    .timeline-item:last-child {
+        border-left: none;
+        padding-bottom: 0;
+    }
+    .timeline-marker {
+        position: absolute;
+        left: -11px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 0 0 2px #dee2e6;
+    }
+    .timeline-item.active .timeline-marker {
+        box-shadow: 0 0 0 2px currentColor;
+    }
+    .file-item {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+    }
+    .file-item:last-child {
+        border-bottom: none;
+    }
+    .file-icon {
+        font-size: 2rem;
+        margin-right: 15px;
+        color: #667eea;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Fetch and display output files
+    document.addEventListener('DOMContentLoaded', function() {
+        fetch('/job/{{ job.id }}/files')
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('files-container');
+
+                if (data.files && data.files.length > 0) {
+                    let html = '';
+                    data.files.forEach(file => {
+                        const icon = getFileIcon(file.filename);
+                        const size = formatFileSize(file.size);
+                        html += `
+                            <div class="file-item">
+                                <i class="bi ${icon} file-icon"></i>
+                                <div class="flex-grow-1">
+                                    <strong>${file.filename}</strong>
+                                    <small class="text-muted d-block">${size}</small>
+                                </div>
+                                <a href="${file.url}" class="btn btn-gradient btn-sm">
+                                    <i class="bi bi-download"></i> Download
+                                </a>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = `
+                        <div class="text-center text-muted py-3">
+                            <i class="bi bi-folder2-open" style="font-size: 2rem;"></i>
+                            <p class="mb-0 mt-2">No output files generated.</p>
+                            <small>Use <code>save_output(filename, content)</code> in your code to create downloadable files.</small>
+                        </div>
+                    `;
+                }
+            })
+            .catch(err => {
+                document.getElementById('files-container').innerHTML = `
+                    <div class="text-muted">Failed to load files.</div>
+                `;
+            });
+    });
+
+    function getFileIcon(filename) {
+        const ext = filename.split('.').pop().toLowerCase();
+        const icons = {
+            'pdf': 'bi-file-earmark-pdf',
+            'png': 'bi-file-earmark-image',
+            'jpg': 'bi-file-earmark-image',
+            'jpeg': 'bi-file-earmark-image',
+            'gif': 'bi-file-earmark-image',
+            'csv': 'bi-file-earmark-spreadsheet',
+            'xlsx': 'bi-file-earmark-spreadsheet',
+            'json': 'bi-file-earmark-code',
+            'txt': 'bi-file-earmark-text',
+            'py': 'bi-file-earmark-code',
+            'zip': 'bi-file-earmark-zip',
+            'pkl': 'bi-file-earmark-binary',
+            'h5': 'bi-file-earmark-binary',
+            'model': 'bi-file-earmark-binary'
+        };
+        return icons[ext] || 'bi-file-earmark';
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Register{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <i class="bi bi-person-plus" style="font-size: 3rem; color: #667eea;"></i>
+                    <h2 class="mt-2">Join CampusGrid</h2>
+                    <p class="text-muted">Get 100 credits free on signup!</p>
+                </div>
+
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" name="username" class="form-control form-control-lg"
+                               required minlength="3" placeholder="Choose a username">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email (optional)</label>
+                        <input type="email" name="email" class="form-control form-control-lg"
+                               placeholder="your@email.com">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" name="password" class="form-control form-control-lg"
+                               required minlength="6" placeholder="At least 6 characters">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">Confirm Password</label>
+                        <input type="password" name="confirm" class="form-control form-control-lg"
+                               required placeholder="Repeat your password">
+                    </div>
+                    <button type="submit" class="btn btn-gradient btn-lg w-100">
+                        <i class="bi bi-person-check"></i> Create Account
+                    </button>
+                </form>
+
+                <hr class="my-4">
+
+                <p class="text-center mb-0">
+                    Already have an account?
+                    <a href="{{ url_for('login') }}">Login here</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

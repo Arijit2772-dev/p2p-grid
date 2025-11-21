@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}Submit Job{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-plus-circle"></i> Submit New Job</h2>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data" id="jobForm">
+                    <div class="mb-3">
+                        <label class="form-label">Job Title *</label>
+                        <input type="text" name="title" class="form-control" required
+                               placeholder="e.g., Train MNIST classifier">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Python Code *</label>
+                        <p class="text-muted small">Paste your code or upload a file below</p>
+                        <textarea name="code" class="form-control font-monospace" rows="15"
+                                  placeholder="# Your Python code here...
+import numpy as np
+
+# Example: Heavy computation
+result = sum(i**2 for i in range(1000000))
+print(f'Result: {result}')"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Or Upload Python File</label>
+                        <input type="file" name="file" class="form-control" accept=".py">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Dependencies (pip packages)</label>
+                        <textarea name="requirements" class="form-control" rows="3"
+                                  placeholder="numpy==1.24.0
+pandas
+scikit-learn"></textarea>
+                        <small class="text-muted">One package per line, like requirements.txt</small>
+                    </div>
+
+                    <hr>
+                    <h5>Resource Requirements</h5>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">CPU Cores</label>
+                                <select name="cpu" class="form-select" id="cpuSelect">
+                                    <option value="1" selected>1 core</option>
+                                    <option value="2">2 cores</option>
+                                    <option value="4">4 cores</option>
+                                    <option value="8">8 cores</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">RAM (GB)</label>
+                                <select name="ram" class="form-select" id="ramSelect">
+                                    <option value="1" selected>1 GB</option>
+                                    <option value="2">2 GB</option>
+                                    <option value="4">4 GB</option>
+                                    <option value="8">8 GB</option>
+                                    <option value="16">16 GB</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">GPU Required</label>
+                                <select name="gpu" class="form-select" id="gpuSelect">
+                                    <option value="0" selected>No GPU</option>
+                                    <option value="1">Yes, GPU needed</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Timeout (seconds)</label>
+                                <select name="timeout" class="form-select" id="timeoutSelect">
+                                    <option value="60">1 minute</option>
+                                    <option value="300" selected>5 minutes</option>
+                                    <option value="600">10 minutes</option>
+                                    <option value="1800">30 minutes</option>
+                                    <option value="3600">1 hour</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Priority</label>
+                                <select name="priority" class="form-select">
+                                    <option value="1">Low (1)</option>
+                                    <option value="5" selected>Normal (5)</option>
+                                    <option value="10">High (10)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <div>
+                            <span class="text-muted">Estimated Cost:</span>
+                            <span class="badge bg-primary fs-5" id="estimatedCost">12 credits</span>
+                        </div>
+                        <button type="submit" class="btn btn-gradient btn-lg">
+                            <i class="bi bi-send"></i> Submit Job
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-wallet2"></i> Your Balance
+            </div>
+            <div class="card-body text-center">
+                <div class="stat-value text-success">{{ user.credits }}</div>
+                <div class="stat-label">Credits Available</div>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> Pricing Guide
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr><td>Base cost</td><td class="text-end">5 credits</td></tr>
+                    <tr><td>Per CPU core</td><td class="text-end">2 credits</td></tr>
+                    <tr><td>Per GB RAM</td><td class="text-end">1 credit</td></tr>
+                    <tr><td>GPU usage</td><td class="text-end">10 credits</td></tr>
+                    <tr><td>Per minute</td><td class="text-end">1 credit</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="bi bi-shield-check"></i> Sandbox Info
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-2">Your code runs in a secure Docker container with:</p>
+                <ul class="small text-muted mb-0">
+                    <li>No network access</li>
+                    <li>Memory limits enforced</li>
+                    <li>CPU usage capped</li>
+                    <li>Read-only filesystem</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function updateCost() {
+        const cpu = parseInt(document.getElementById('cpuSelect').value);
+        const ram = parseInt(document.getElementById('ramSelect').value);
+        const gpu = parseInt(document.getElementById('gpuSelect').value);
+        const timeout = parseInt(document.getElementById('timeoutSelect').value);
+
+        const baseCost = 5;
+        const cpuCost = cpu * 2;
+        const ramCost = ram;
+        const gpuCost = gpu * 10;
+        const timeCost = Math.floor(timeout / 60);
+
+        const total = baseCost + cpuCost + ramCost + gpuCost + timeCost;
+        document.getElementById('estimatedCost').textContent = total + ' credits';
+    }
+
+    document.getElementById('cpuSelect').addEventListener('change', updateCost);
+    document.getElementById('ramSelect').addEventListener('change', updateCost);
+    document.getElementById('gpuSelect').addEventListener('change', updateCost);
+    document.getElementById('timeoutSelect').addEventListener('change', updateCost);
+
+    updateCost();
+</script>
+{% endblock %}

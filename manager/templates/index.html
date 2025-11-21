@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-speedometer2"></i> Dashboard</h2>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card primary">
+            <div class="stat-value" id="stat-pending">{{ stats.pending if stats else 0 }}</div>
+            <div class="stat-label">Pending Jobs</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card info">
+            <div class="stat-value" id="stat-running">{{ stats.running if stats else 0 }}</div>
+            <div class="stat-label">Running Jobs</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card success">
+            <div class="stat-value" id="stat-completed">{{ stats.completed if stats else 0 }}</div>
+            <div class="stat-label">Completed</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card warning">
+            <div class="stat-value" id="stat-workers">{{ stats.online_workers if stats else 0 }}</div>
+            <div class="stat-label">Online Workers</div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Recent Jobs -->
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clock-history"></i> Recent Jobs</span>
+                <a href="{{ url_for('jobs') }}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body">
+                {% if recent_jobs %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Submitter</th>
+                                <th>Status</th>
+                                <th>Worker</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for job in recent_jobs %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('job_detail', job_id=job.id) }}">
+                                        {{ job.title[:30] }}{% if job.title|length > 30 %}...{% endif %}
+                                    </a>
+                                </td>
+                                <td>{{ job.submitter_name or 'Unknown' }}</td>
+                                <td>
+                                    <span class="badge badge-status badge-{{ job.status }}">
+                                        {{ job.status|upper }}
+                                    </span>
+                                </td>
+                                <td>{{ job.worker_name or '-' }}</td>
+                                <td>{{ job.created_at[:16] if job.created_at else 'N/A' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                    <p class="mt-2">No jobs yet. <a href="{{ url_for('submit_job') }}">Submit your first job!</a></p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Online Workers -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-pc-display"></i> Connected Workers
+            </div>
+            <div class="card-body">
+                {% if workers %}
+                <div class="row">
+                    {% for worker in workers %}
+                    <div class="col-md-6">
+                        <div class="worker-card {{ worker.status }}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">{{ worker.name }}</h6>
+                                    <small class="text-muted">
+                                        <i class="bi bi-cpu"></i> {{ worker.cpu_cores or '?' }} cores |
+                                        <i class="bi bi-memory"></i> {{ worker.ram_gb or '?' }}GB
+                                        {% if worker.gpu_name %}
+                                        | <i class="bi bi-gpu-card"></i> {{ worker.gpu_name }}
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                <span class="badge badge-status badge-{{ worker.status }}">
+                                    {{ worker.status|upper }}
+                                </span>
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    Owner: {{ worker.owner_name or 'Anonymous' }} |
+                                    Jobs: {{ worker.total_jobs_completed or 0 }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-pc-display-horizontal" style="font-size: 3rem;"></i>
+                    <p class="mt-2">No workers connected yet.</p>
+                    <p><small>Run <code>python worker/client.py</code> on any machine to join the network!</small></p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaderboard -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-trophy"></i> Top Contributors
+            </div>
+            <div class="card-body p-0">
+                {% if leaderboard %}
+                {% for entry in leaderboard %}
+                <div class="leaderboard-item">
+                    <div class="leaderboard-rank {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
+                        {{ loop.index }}
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-bold">{{ entry.username }}</div>
+                        <small class="text-muted">
+                            {{ entry.jobs_completed or 0 }} jobs | {{ entry.active_workers or 0 }} workers
+                        </small>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-success">{{ entry.credits }} credits</span>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <p>No contributors yet!</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="bi bi-lightning"></i> Quick Actions
+            </div>
+            <div class="card-body">
+                <a href="{{ url_for('submit_job') }}" class="btn btn-gradient w-100 mb-2">
+                    <i class="bi bi-plus-circle"></i> Submit New Job
+                </a>
+                <a href="{{ url_for('workers') }}" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-pc-display"></i> Manage Workers
+                </a>
+            </div>
+        </div>
+
+        <!-- How to Earn Credits -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> How to Earn Credits
+            </div>
+            <div class="card-body">
+                <ol class="mb-0">
+                    <li class="mb-2">Run the worker client on your laptop</li>
+                    <li class="mb-2">Let it process jobs from others</li>
+                    <li class="mb-2">Earn credits for each completed job</li>
+                    <li>Use credits to submit your own jobs!</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
