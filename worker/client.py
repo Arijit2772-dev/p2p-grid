@@ -175,7 +175,7 @@ class SandboxExecutor:
             return self._execute_restricted(code, timeout, requirements)
 
     def _execute_docker(self, code, timeout, requirements):
-        """Execute code in Docker container with strict security isolation"""
+        """Execute code in Docker container with security isolation"""
         temp_dir = tempfile.mkdtemp(prefix='p2p_job_')
         output_dir = os.path.join(temp_dir, 'output')
         os.makedirs(output_dir, exist_ok=True)
@@ -192,52 +192,36 @@ class SandboxExecutor:
                 with open(req_path, 'w') as f:
                     f.write(requirements)
 
-            # Build run command - install to user site-packages since root fs is read-only
+            # Build run command
             if requirements:
-                run_cmd = 'pip install --user -q -r /app/requirements.txt 2>/dev/null; python /app/job.py'
+                run_cmd = 'pip install -q -r /app/requirements.txt && python /app/job.py'
             else:
                 run_cmd = 'python /app/job.py'
 
-            # Security options for container isolation
-            security_opts = [
-                'no-new-privileges:true',  # Prevent privilege escalation
-            ]
-
-            # Run container with strict security restrictions
+            # Run container with security restrictions
             container = self.docker_client.containers.run(
                 image='python:3.11-slim',
                 command=['sh', '-c', run_cmd],
                 volumes={
-                    temp_dir: {'bind': '/app', 'mode': 'ro'},  # Code is read-only
-                    output_dir: {'bind': '/output', 'mode': 'rw'}  # Output directory is writable
+                    temp_dir: {'bind': '/app', 'mode': 'rw'},  # App directory
+                    output_dir: {'bind': '/output', 'mode': 'rw'}  # Output directory
                 },
                 working_dir='/app',
                 environment={
                     'OUTPUT_DIR': '/output',
-                    'HOME': '/tmp',  # Set HOME to writable location
-                    'PYTHONUSERBASE': '/tmp/.local'  # User packages in temp
+                    'PYTHONUNBUFFERED': '1'  # Ensure print output is captured
                 },
                 # Resource limits
-                mem_limit='512m',           # Max 512MB RAM
-                memswap_limit='512m',       # No swap (same as mem_limit)
+                mem_limit='1g',             # Max 1GB RAM
                 cpu_period=100000,
-                cpu_quota=50000,            # 50% of one CPU
-                pids_limit=100,             # Max 100 processes
+                cpu_quota=100000,           # 100% of one CPU
+                pids_limit=200,             # Max 200 processes
                 # Security restrictions
                 network_disabled=True,      # No network access
-                read_only=True,             # Read-only root filesystem
-                security_opt=security_opts,
-                cap_drop=['ALL'],           # Drop all Linux capabilities
-                # Temp filesystem for pip installs and other writes
-                tmpfs={
-                    '/tmp': 'size=100M,mode=1777',
-                    '/root': 'size=50M,mode=755'
-                },
-                user='nobody',              # Run as unprivileged user
                 detach=True,
                 remove=False
             )
-            print(f"[DOCKER] Container started with security isolation")
+            print(f"[DOCKER] Container started")
 
             try:
                 result = container.wait(timeout=timeout)
@@ -351,9 +335,14 @@ class SandboxExecutor:
             # Also collect any files created in the temp directory (excluding job.py)
             output_files.extend(self._collect_output_files(temp_dir, exclude=['job.py', 'output']))
 
+            # Combine stdout and stderr for full output
+            full_output = proc.stdout
+            if proc.stderr:
+                full_output += "\n[STDERR]\n" + proc.stderr
+
             return {
                 'success': proc.returncode == 0,
-                'output': proc.stdout,
+                'output': full_output,
                 'error': proc.stderr if proc.returncode != 0 else None,
                 'files': output_files
             }
