@@ -12,9 +12,8 @@ import os
 import sys
 from functools import wraps
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
-from werkzeug.utils import secure_filename
 
 # Add current directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -242,7 +241,7 @@ def coordinator_dashboard():
 def worker_dashboard():
     """Worker dashboard - manage own workers and view earnings"""
     user = get_current_user()
-    my_workers = database.get_user_workers(user['id'])
+    my_workers = database.get_workers_with_current_jobs(user['id'])
     stats = database.get_queue_stats()
 
     # Calculate total earnings from workers
@@ -305,11 +304,16 @@ def submit_job():
         title = request.form.get('title', '').strip()
         code = request.form.get('code', '')
         requirements = request.form.get('requirements', '').strip()
-        cpu_required = int(request.form.get('cpu', 1))
-        ram_required = float(request.form.get('ram', 1))
-        gpu_required = int(request.form.get('gpu', 0))
-        timeout = int(request.form.get('timeout', 300))
-        priority = int(request.form.get('priority', 5))
+
+        try:
+            cpu_required = int(request.form.get('cpu', 1))
+            ram_required = float(request.form.get('ram', 1))
+            gpu_required = int(request.form.get('gpu', 0))
+            timeout = int(request.form.get('timeout', 300))
+            priority = int(request.form.get('priority', 5))
+        except (ValueError, TypeError):
+            flash('Invalid numeric values provided.', 'error')
+            return render_template('submit.html', user=user)
 
         # Handle file upload
         if 'file' in request.files:
@@ -385,7 +389,7 @@ def api_leaderboard():
 @app.route('/api/cost', methods=['POST'])
 @login_required
 def api_calculate_cost():
-    data = request.json
+    data = request.json or {}
     cost = database.calculate_job_cost(
         data.get('cpu', 1),
         data.get('ram', 1),
@@ -425,8 +429,6 @@ def job_files(job_id):
 @login_required
 def download_file(job_id, filename):
     """Download a specific output file"""
-    from flask import send_from_directory
-
     job = database.get_job_by_id(job_id)
     if not job:
         flash('Job not found.', 'error')
@@ -435,7 +437,7 @@ def download_file(job_id, filename):
     output_dir = os.path.join(os.path.dirname(__file__), 'job_outputs', job_id)
 
     # Security: ensure filename doesn't contain path traversal
-    if '..' in filename or '/' in filename:
+    if '..' in filename or '/' in filename or '\\' in filename:
         flash('Invalid filename.', 'error')
         return redirect(url_for('job_detail', job_id=job_id))
 
@@ -463,6 +465,10 @@ def my_workers():
 def pause_worker(worker_id):
     """Pause a worker"""
     user = get_current_user()
+    worker = database.get_worker_by_id(worker_id)
+    if not worker or (worker['owner_id'] != user['id'] and not user.get('is_admin')):
+        flash('Worker not found or access denied.', 'error')
+        return redirect(url_for('my_workers'))
     if database.pause_worker(worker_id):
         flash('Worker paused. It will not receive new jobs.', 'success')
     else:
@@ -475,6 +481,10 @@ def pause_worker(worker_id):
 def resume_worker(worker_id):
     """Resume a worker"""
     user = get_current_user()
+    worker = database.get_worker_by_id(worker_id)
+    if not worker or (worker['owner_id'] != user['id'] and not user.get('is_admin')):
+        flash('Worker not found or access denied.', 'error')
+        return redirect(url_for('my_workers'))
     if database.resume_worker(worker_id):
         flash('Worker resumed. It will now receive jobs.', 'success')
     else:
@@ -487,6 +497,10 @@ def resume_worker(worker_id):
 def remove_worker(worker_id):
     """Remove a worker"""
     user = get_current_user()
+    worker = database.get_worker_by_id(worker_id)
+    if not worker or (worker['owner_id'] != user['id'] and not user.get('is_admin')):
+        flash('Worker not found or access denied.', 'error')
+        return redirect(url_for('my_workers'))
     if database.remove_worker(worker_id):
         flash('Worker removed.', 'success')
     else:

@@ -517,6 +517,37 @@ def get_job_by_id(job_id):
         return cursor.fetchone()
 
 
+def get_current_job_for_worker(worker_id):
+    """Get the currently running job for a worker"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT j.*, u.username as submitter_name
+            FROM jobs j
+            LEFT JOIN users u ON j.submitter_id = u.id
+            WHERE j.worker_id = ? AND j.status = 'running'
+            LIMIT 1
+        ''', (worker_id,))
+        return cursor.fetchone()
+
+
+def get_workers_with_current_jobs(owner_id):
+    """Get workers with their current job info"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT w.*,
+                   j.id as current_job_id,
+                   j.title as current_job_title,
+                   j.started_at as job_started_at
+            FROM workers w
+            LEFT JOIN jobs j ON w.id = j.worker_id AND j.status = 'running'
+            WHERE w.owner_id = ?
+            ORDER BY w.created_at DESC
+        ''', (owner_id,))
+        return cursor.fetchall()
+
+
 def get_jobs_by_status(status=None, limit=50):
     """Get jobs filtered by status"""
     with get_db() as conn:
