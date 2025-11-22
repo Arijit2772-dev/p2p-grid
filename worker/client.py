@@ -455,6 +455,8 @@ class WorkerClient:
         """Connect to manager server"""
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+            self.socket.settimeout(120)  # 2 minute timeout
             self.socket.connect((self.config['manager_host'], self.config['manager_port']))
 
             # Send registration
