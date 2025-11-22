@@ -563,6 +563,10 @@ class WorkerClient:
                     # Execute the job
                     result = self.execute_job(job_response)
                     self._send_message(result)
+                    # Wait for acknowledgment from server
+                    ack = self._receive_message()
+                    if ack and ack.get('type') == 'job_received':
+                        print(f"[JOB] Result delivered successfully")
                 elif job_response.get('type') == 'no_job':
                     # No jobs available, wait a bit
                     time.sleep(5)

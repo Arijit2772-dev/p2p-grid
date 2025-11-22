@@ -260,12 +260,18 @@ class ManagerServer:
                     error = msg.get('error')
                     files = msg.get('files', [])
 
-                    # Save output files if any
-                    if files:
-                        self._save_job_files(job_id, files)
+                    try:
+                        # Save output files if any
+                        if files:
+                            self._save_job_files(job_id, files)
 
-                    self.scheduler.complete_job(job_id, worker_id, success, output, error)
-                    print(f"[JOB] {job_id[:8]} completed: {'SUCCESS' if success else 'FAILED'} ({len(files)} files)")
+                        self.scheduler.complete_job(job_id, worker_id, success, output, error)
+                        print(f"[JOB] {job_id[:8]} completed: {'SUCCESS' if success else 'FAILED'} ({len(files)} files)")
+                    except Exception as e:
+                        print(f"[ERROR] Failed to save job result: {e}")
+
+                    # Send acknowledgment to worker
+                    self._send_message(conn, {'type': 'job_received', 'job_id': job_id})
 
                 elif msg_type == 'disconnect':
                     break
