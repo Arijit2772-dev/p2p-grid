@@ -17,8 +17,11 @@ DB_PATH = os.path.join(BASE_DIR, "campus_compute.db")
 @contextmanager
 def get_db():
     """Thread-safe database connection context manager"""
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=30)
     conn.row_factory = sqlite3.Row
+    # Enable WAL mode for better concurrency
+    conn.execute('PRAGMA journal_mode=WAL')
+    conn.execute('PRAGMA busy_timeout=30000')  # 30 second timeout
     try:
         yield conn
     finally:
@@ -451,42 +454,59 @@ def get_next_job_for_worker(worker_id):
 
 def complete_job(job_id, result_output, success=True, error_log=None):
     """Mark job as completed and process rewards"""
-    with get_db() as conn:
-        cursor = conn.cursor()
+    import time
+    max_retries = 3
 
-        cursor.execute('SELECT * FROM jobs WHERE id = ?', (job_id,))
-        job = cursor.fetchone()
+    for attempt in range(max_retries):
+        try:
+            with get_db() as conn:
+                cursor = conn.cursor()
 
-        if not job:
-            return False
+                cursor.execute('SELECT * FROM jobs WHERE id = ?', (job_id,))
+                job = cursor.fetchone()
 
-        status = 'completed' if success else 'failed'
+                if not job:
+                    return False
 
-        # Update job
-        cursor.execute('''
-            UPDATE jobs SET status = ?, result_output = ?, error_log = ?, completed_at = ?
-            WHERE id = ?
-        ''', (status, result_output, error_log, datetime.now(), job_id))
+                status = 'completed' if success else 'failed'
 
-        if success and job['worker_id']:
-            # Reward worker owner
-            worker = get_worker_by_id(job['worker_id'])
-            if worker and worker['owner_id']:
+                # Update job
                 cursor.execute('''
-                    UPDATE users SET credits = credits + ? WHERE id = ?
-                ''', (job['credit_reward'], worker['owner_id']))
+                    UPDATE jobs SET status = ?, result_output = ?, error_log = ?, completed_at = ?
+                    WHERE id = ?
+                ''', (status, result_output, error_log, datetime.now(), job_id))
 
-                cursor.execute('''
-                    INSERT INTO credit_transactions (user_id, amount, transaction_type, job_id, description)
-                    VALUES (?, ?, 'job_completed', ?, ?)
-                ''', (worker['owner_id'], job['credit_reward'], job_id, f'Completed job: {job["title"]}'))
+                if success and job['worker_id']:
+                    # Reward worker owner
+                    worker = get_worker_by_id(job['worker_id'])
+                    if worker and worker['owner_id']:
+                        cursor.execute('''
+                            UPDATE users SET credits = credits + ? WHERE id = ?
+                        ''', (job['credit_reward'], worker['owner_id']))
 
-                # Update worker stats
-                increment_worker_stats(job['worker_id'], job['credit_reward'])
+                        cursor.execute('''
+                            INSERT INTO credit_transactions (user_id, amount, transaction_type, job_id, description)
+                            VALUES (?, ?, 'job_completed', ?, ?)
+                        ''', (worker['owner_id'], job['credit_reward'], job_id, f'Completed job: {job["title"]}'))
 
-        conn.commit()
-        log_activity('job_completed', job['worker_id'], f'Job {job_id}: {status}')
-        return True
+                        # Update worker stats
+                        cursor.execute('''
+                            UPDATE workers
+                            SET total_jobs_completed = total_jobs_completed + 1,
+                                total_credits_earned = total_credits_earned + ?
+                            WHERE id = ?
+                        ''', (job['credit_reward'], job['worker_id']))
+
+                conn.commit()
+                log_activity('job_completed', job['worker_id'], f'Job {job_id}: {status}')
+                return True
+        except sqlite3.OperationalError as e:
+            if 'locked' in str(e) and attempt < max_retries - 1:
+                print(f"[DB] Database locked, retrying ({attempt + 1}/{max_retries})...")
+                time.sleep(0.5)
+            else:
+                raise
+    return False
 
 
 def get_job_by_id(job_id):

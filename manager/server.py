@@ -191,23 +191,18 @@ class ManagerServer:
         try:
             header = conn.recv(10).decode()
             if not header:
-                print("[DEBUG] Empty header received")
                 return None
             size = int(header)
             if size == 0:
                 return None
-            print(f"[DEBUG] Receiving message of size {size}")
             data = b''
             while len(data) < size:
                 chunk = conn.recv(min(65536, size - len(data)))  # Larger chunk size
                 if not chunk:
-                    print("[DEBUG] No chunk received")
                     return None
                 data += chunk
-            print(f"[DEBUG] Received full message, parsing JSON...")
             return json.loads(data.decode())
         except Exception as e:
-            print(f"[DEBUG] Receive exception: {e}")
             return None
 
     def handle_worker(self, conn, addr):
@@ -269,26 +264,18 @@ class ManagerServer:
                     error = msg.get('error')
                     files = msg.get('files', [])
 
-                    print(f"[DEBUG] Received job result for {job_id[:8]}, output length: {len(output)}")
-
                     try:
                         # Save output files if any
                         if files:
-                            print(f"[DEBUG] Saving {len(files)} files...")
                             self._save_job_files(job_id, files)
 
-                        print(f"[DEBUG] Completing job in database...")
                         self.scheduler.complete_job(job_id, worker_id, success, output, error)
                         print(f"[JOB] {job_id[:8]} completed: {'SUCCESS' if success else 'FAILED'} ({len(files)} files)")
                     except Exception as e:
                         print(f"[ERROR] Failed to save job result: {e}")
-                        import traceback
-                        traceback.print_exc()
 
                     # Send acknowledgment to worker
-                    print(f"[DEBUG] Sending acknowledgment...")
-                    ack_sent = self._send_message(conn, {'type': 'job_received', 'job_id': job_id})
-                    print(f"[DEBUG] Acknowledgment sent: {ack_sent}")
+                    self._send_message(conn, {'type': 'job_received', 'job_id': job_id})
 
                 elif msg_type == 'disconnect':
                     break
