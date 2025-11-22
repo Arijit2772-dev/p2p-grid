@@ -24,6 +24,37 @@
                                placeholder="your@email.com">
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">I want to...</label>
+                        <div class="row g-2">
+                            <div class="col-4">
+                                <input type="radio" class="btn-check" name="role" id="role-user" value="user" checked>
+                                <label class="btn btn-outline-primary w-100 py-3" for="role-user">
+                                    <i class="bi bi-person d-block mb-1" style="font-size: 1.5rem;"></i>
+                                    <small>Submit Jobs</small>
+                                </label>
+                            </div>
+                            <div class="col-4">
+                                <input type="radio" class="btn-check" name="role" id="role-worker" value="worker">
+                                <label class="btn btn-outline-success w-100 py-3" for="role-worker">
+                                    <i class="bi bi-pc-display d-block mb-1" style="font-size: 1.5rem;"></i>
+                                    <small>Provide Resources</small>
+                                </label>
+                            </div>
+                            <div class="col-4">
+                                <input type="radio" class="btn-check" name="role" id="role-coordinator" value="coordinator">
+                                <label class="btn btn-outline-danger w-100 py-3" for="role-coordinator">
+                                    <i class="bi bi-shield-check d-block mb-1" style="font-size: 1.5rem;"></i>
+                                    <small>Coordinate</small>
+                                </label>
+                            </div>
+                        </div>
+                        <small class="text-muted d-block mt-2">
+                            <strong>User:</strong> Submit compute jobs |
+                            <strong>Worker:</strong> Contribute resources & earn |
+                            <strong>Coordinator:</strong> Manage the network
+                        </small>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Password</label>
                         <input type="password" name="password" class="form-control form-control-lg"
                                required minlength="6" placeholder="At least 6 characters">

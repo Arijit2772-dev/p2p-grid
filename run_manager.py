@@ -8,9 +8,23 @@ import os
 import sys
 import threading
 import time
+import socket
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+
+def get_local_ip():
+    """Get the local IP address of this machine"""
+    try:
+        # Create a socket to determine the outbound IP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
 
 def run_tcp_server():
     """Run the TCP server for worker connections"""
@@ -23,6 +37,8 @@ def start_dashboard():
     run_dashboard(debug=False)
 
 def main():
+    local_ip = get_local_ip()
+
     print("""
     ╔═══════════════════════════════════════════════════════════╗
     ║                                                           ║
@@ -39,8 +55,22 @@ def main():
     """)
 
     print("[STARTUP] Initializing CampusGrid Manager...")
-    print("[STARTUP] Dashboard will be available at: http://localhost:5001")
-    print("[STARTUP] Worker connections accepted on port: 9999")
+    print()
+    print("=" * 60)
+    print(f"  YOUR NETWORK IP: {local_ip}")
+    print("=" * 60)
+    print()
+    print("  DASHBOARD (Web UI):")
+    print(f"    Local:   http://localhost:5001")
+    print(f"    Network: http://{local_ip}:5001")
+    print()
+    print("  WORKER CONNECTION:")
+    print(f"    Port: 9999")
+    print()
+    print("  TO CONNECT WORKERS FROM OTHER LAPTOPS:")
+    print(f"    python3 run_worker.py -m {local_ip} -n \"WorkerName\" -u <username>")
+    print()
+    print("=" * 60)
     print()
 
     # Start TCP server in background thread

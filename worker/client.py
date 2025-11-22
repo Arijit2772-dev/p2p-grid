@@ -172,11 +172,14 @@ class SandboxExecutor:
         if self.use_docker:
             return self._execute_docker(code, timeout, requirements)
         else:
-            return self._execute_restricted(code, timeout)
+            return self._execute_restricted(code, timeout, requirements)
 
     def _execute_docker(self, code, timeout, requirements):
-        """Execute code in Docker container"""
+        """Execute code in Docker container with strict security isolation"""
         temp_dir = tempfile.mkdtemp(prefix='p2p_job_')
+        output_dir = os.path.join(temp_dir, 'output')
+        os.makedirs(output_dir, exist_ok=True)
+
         try:
             # Write code to file
             code_path = os.path.join(temp_dir, 'job.py')
@@ -189,43 +192,77 @@ class SandboxExecutor:
                 with open(req_path, 'w') as f:
                     f.write(requirements)
 
-            # Build run command
+            # Build run command - install to user site-packages since root fs is read-only
             if requirements:
-                run_cmd = 'pip install -q -r /app/requirements.txt && python /app/job.py'
+                run_cmd = 'pip install --user -q -r /app/requirements.txt 2>/dev/null; python /app/job.py'
             else:
                 run_cmd = 'python /app/job.py'
 
-            # Run container
+            # Security options for container isolation
+            security_opts = [
+                'no-new-privileges:true',  # Prevent privilege escalation
+            ]
+
+            # Run container with strict security restrictions
             container = self.docker_client.containers.run(
                 image='python:3.11-slim',
                 command=['sh', '-c', run_cmd],
-                volumes={temp_dir: {'bind': '/app', 'mode': 'ro'}},
+                volumes={
+                    temp_dir: {'bind': '/app', 'mode': 'ro'},  # Code is read-only
+                    output_dir: {'bind': '/output', 'mode': 'rw'}  # Output directory is writable
+                },
                 working_dir='/app',
-                mem_limit='512m',
+                environment={
+                    'OUTPUT_DIR': '/output',
+                    'HOME': '/tmp',  # Set HOME to writable location
+                    'PYTHONUSERBASE': '/tmp/.local'  # User packages in temp
+                },
+                # Resource limits
+                mem_limit='512m',           # Max 512MB RAM
+                memswap_limit='512m',       # No swap (same as mem_limit)
                 cpu_period=100000,
-                cpu_quota=50000,  # 50% of one CPU
-                network_disabled=True,  # No network access
-                read_only=True,
+                cpu_quota=50000,            # 50% of one CPU
+                pids_limit=100,             # Max 100 processes
+                # Security restrictions
+                network_disabled=True,      # No network access
+                read_only=True,             # Read-only root filesystem
+                security_opt=security_opts,
+                cap_drop=['ALL'],           # Drop all Linux capabilities
+                # Temp filesystem for pip installs and other writes
+                tmpfs={
+                    '/tmp': 'size=100M,mode=1777',
+                    '/root': 'size=50M,mode=755'
+                },
+                user='nobody',              # Run as unprivileged user
                 detach=True,
                 remove=False
             )
+            print(f"[DOCKER] Container started with security isolation")
 
             try:
                 result = container.wait(timeout=timeout)
                 logs = container.logs().decode('utf-8')
                 exit_code = result.get('StatusCode', 1)
 
+                # Collect output files from the output directory
+                output_files = self._collect_output_files(output_dir)
+
                 return {
                     'success': exit_code == 0,
                     'output': logs,
-                    'error': None if exit_code == 0 else f'Exit code: {exit_code}'
+                    'error': None if exit_code == 0 else f'Exit code: {exit_code}',
+                    'files': output_files
                 }
             except Exception as e:
-                container.kill()
+                try:
+                    container.kill()
+                except Exception:
+                    pass
                 return {
                     'success': False,
                     'output': '',
-                    'error': f'Timeout or error: {str(e)}'
+                    'error': f'Timeout or error: {str(e)}',
+                    'files': []
                 }
             finally:
                 try:
@@ -236,7 +273,7 @@ class SandboxExecutor:
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
 
-    def _execute_restricted(self, code, timeout):
+    def _execute_restricted(self, code, timeout, requirements=None):
         """Execute code with restrictions (fallback when Docker unavailable)"""
         import textwrap
         temp_dir = tempfile.mkdtemp(prefix='p2p_job_')
@@ -244,6 +281,21 @@ class SandboxExecutor:
         os.makedirs(output_dir, exist_ok=True)
 
         try:
+            # Install requirements if specified
+            if requirements:
+                print(f"[PIP] Installing requirements...")
+                req_lines = [r.strip() for r in requirements.strip().split('\n') if r.strip()]
+                for req in req_lines:
+                    try:
+                        subprocess.run(
+                            [sys.executable, '-m', 'pip', 'install', '-q', req],
+                            capture_output=True,
+                            timeout=60
+                        )
+                        print(f"[PIP] Installed: {req}")
+                    except Exception as e:
+                        print(f"[PIP] Failed to install {req}: {e}")
+
             code_path = os.path.join(temp_dir, 'job.py')
 
             # Clean user code - remove any common leading whitespace
@@ -294,8 +346,10 @@ class SandboxExecutor:
                 cwd=temp_dir
             )
 
-            # Collect output files
+            # Collect output files from both output_dir and temp_dir (for files like output.pdf)
             output_files = self._collect_output_files(output_dir)
+            # Also collect any files created in the temp directory (excluding job.py)
+            output_files.extend(self._collect_output_files(temp_dir, exclude=['job.py', 'output']))
 
             return {
                 'success': proc.returncode == 0,
@@ -321,13 +375,17 @@ class SandboxExecutor:
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
 
-    def _collect_output_files(self, output_dir, max_file_size=10*1024*1024):
+    def _collect_output_files(self, output_dir, max_file_size=10*1024*1024, exclude=None):
         """Collect output files and encode as base64"""
         files = []
+        exclude = exclude or []
         if not os.path.exists(output_dir):
             return files
 
         for filepath in glob_module.glob(os.path.join(output_dir, '*')):
+            filename = os.path.basename(filepath)
+            if filename in exclude:
+                continue
             if os.path.isfile(filepath):
                 file_size = os.path.getsize(filepath)
                 if file_size > max_file_size:

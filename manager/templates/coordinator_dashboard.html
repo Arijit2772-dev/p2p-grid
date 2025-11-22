@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Coordinator Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-shield-check"></i> Coordinator Dashboard</h2>
+    <span class="badge bg-danger fs-6">Admin Access</span>
+</div>
+
+<!-- Stats Overview -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card primary">
+            <div class="stat-value" id="stat-pending">{{ stats.pending or 0 }}</div>
+            <div class="stat-label">Pending Jobs</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card info">
+            <div class="stat-value" id="stat-running">{{ stats.running or 0 }}</div>
+            <div class="stat-label">Running Jobs</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card success">
+            <div class="stat-value" id="stat-completed">{{ stats.completed or 0 }}</div>
+            <div class="stat-label">Completed</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card warning">
+            <div class="stat-value" id="stat-workers">{{ stats.online_workers or 0 }}</div>
+            <div class="stat-label">Online Workers</div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- User Management -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-people"></i> User Management</span>
+                <span class="badge bg-secondary">{{ all_users|length }} users</span>
+            </div>
+            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Role</th>
+                            <th>Credits</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in all_users %}
+                        <tr>
+                            <td>{{ u.username }}</td>
+                            <td>
+                                <span class="badge {% if u.role == 'coordinator' %}bg-danger{% elif u.role == 'worker' %}bg-success{% else %}bg-primary{% endif %}">
+                                    {{ u.role or 'user' }}
+                                </span>
+                            </td>
+                            <td>{{ u.credits }}</td>
+                            <td>
+                                <form action="{{ url_for('change_user_role', user_id=u.id) }}" method="POST" class="d-inline">
+                                    <select name="role" class="form-select form-select-sm d-inline w-auto" onchange="this.form.submit()">
+                                        <option value="">Change...</option>
+                                        <option value="coordinator">Coordinator</option>
+                                        <option value="worker">Worker</option>
+                                        <option value="user">User</option>
+                                    </select>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- All Workers -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-pc-display"></i> All Workers</span>
+                <span class="badge bg-secondary">{{ workers|length }} total</span>
+            </div>
+            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                {% for worker in workers %}
+                <div class="worker-card {{ worker.status }}">
+                    <div class="d-flex justify-content-between">
+                        <strong>{{ worker.name }}</strong>
+                        <span class="badge badge-status badge-{{ worker.status }}">{{ worker.status }}</span>
+                    </div>
+                    <small class="text-muted">Owner: {{ worker.owner_name or 'Unknown' }}</small>
+                    <div class="mt-1">
+                        <small>CPU: {{ worker.cpu_cores }} | RAM: {{ worker.ram_gb }}GB | Jobs: {{ worker.total_jobs_completed }}</small>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-muted">No workers registered.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Recent Jobs -->
+    <div class="col-md-8 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-list-task"></i> Recent Jobs
+            </div>
+            <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Submitter</th>
+                            <th>Status</th>
+                            <th>Worker</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for job in recent_jobs %}
+                        <tr>
+                            <td><a href="{{ url_for('job_detail', job_id=job.id) }}">{{ job.title }}</a></td>
+                            <td>{{ job.submitter_name }}</td>
+                            <td><span class="badge badge-status badge-{{ job.status }}">{{ job.status }}</span></td>
+                            <td>{{ job.worker_name or '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Actions -->
+    <div class="col-md-4 mb-4">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <i class="bi bi-exclamation-triangle"></i> Admin Actions
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">Dangerous actions - use with caution!</p>
+                <form action="{{ url_for('clear_history') }}" method="POST" class="mb-2"
+                      onsubmit="return confirm('Clear ALL job history?');">
+                    <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                        <i class="bi bi-trash"></i> Clear Job History
+                    </button>
+                </form>
+                <form action="{{ url_for('clear_workers') }}" method="POST"
+                      onsubmit="return confirm('Remove ALL workers?');">
+                    <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                        <i class="bi bi-trash"></i> Clear All Workers
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Leaderboard -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-trophy"></i> Top Contributors
+            </div>
+            <div class="card-body">
+                {% for entry in leaderboard %}
+                <div class="leaderboard-item">
+                    <div class="leaderboard-rank {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
+                        {{ loop.index }}
+                    </div>
+                    <div class="flex-grow-1">
+                        <strong>{{ entry.username }}</strong>
+                        <div class="small text-muted">{{ entry.jobs_completed or 0 }} jobs completed</div>
+                    </div>
+                    <div class="text-end">
+                        <span class="credits-display">{{ entry.credits }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

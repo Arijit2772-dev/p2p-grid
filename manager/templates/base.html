@@ -178,24 +178,42 @@
             {% if user %}
             <div class="col-md-2 sidebar py-3">
                 <nav class="nav flex-column">
-                    <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
+                    <!-- Role indicator -->
+                    <div class="px-3 py-2 mb-2 text-muted small text-uppercase">
+                        <i class="bi bi-shield-check"></i> {{ user.role|default('user')|title }}
+                    </div>
+
+                    <a class="nav-link {% if request.endpoint in ['index', 'dashboard_redirect', 'coordinator_dashboard', 'worker_dashboard', 'user_dashboard'] %}active{% endif %}" href="{{ url_for('dashboard_redirect') }}">
                         <i class="bi bi-speedometer2"></i> Dashboard
                     </a>
-                    <a class="nav-link {% if request.endpoint == 'submit_job' %}active{% endif %}" href="{{ url_for('submit_job') }}">
-                        <i class="bi bi-plus-circle"></i> Submit Job
-                    </a>
+
+                    {% if user.role == 'coordinator' %}
+                    <!-- Coordinator Menu -->
+                    <div class="px-3 py-2 mt-2 text-muted small text-uppercase">Admin</div>
                     <a class="nav-link {% if request.endpoint == 'jobs' %}active{% endif %}" href="{{ url_for('jobs') }}">
                         <i class="bi bi-list-task"></i> All Jobs
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'workers' %}active{% endif %}" href="{{ url_for('workers') }}">
+                        <i class="bi bi-pc-display"></i> All Workers
+                    </a>
+
+                    {% elif user.role == 'worker' %}
+                    <!-- Worker Menu -->
+                    <div class="px-3 py-2 mt-2 text-muted small text-uppercase">My Resources</div>
+                    <a class="nav-link {% if request.endpoint == 'my_workers' %}active{% endif %}" href="{{ url_for('my_workers') }}">
+                        <i class="bi bi-gear"></i> My Workers
+                    </a>
+
+                    {% else %}
+                    <!-- User Menu -->
+                    <div class="px-3 py-2 mt-2 text-muted small text-uppercase">Jobs</div>
+                    <a class="nav-link {% if request.endpoint == 'submit_job' %}active{% endif %}" href="{{ url_for('submit_job') }}">
+                        <i class="bi bi-plus-circle"></i> Submit Job
                     </a>
                     <a class="nav-link {% if request.endpoint == 'my_jobs' %}active{% endif %}" href="{{ url_for('my_jobs') }}">
                         <i class="bi bi-person-check"></i> My Jobs
                     </a>
-                    <a class="nav-link {% if request.endpoint == 'workers' %}active{% endif %}" href="{{ url_for('workers') }}">
-                        <i class="bi bi-pc-display"></i> Workers
-                    </a>
-                    <a class="nav-link {% if request.endpoint == 'my_workers' %}active{% endif %}" href="{{ url_for('my_workers') }}">
-                        <i class="bi bi-gear"></i> My Workers
-                    </a>
+                    {% endif %}
                 </nav>
             </div>
             <main class="col-md-10 py-4 px-4">

@@ -70,6 +70,43 @@ def login_required(f):
     return decorated_function
 
 
+def admin_required(f):
+    """Decorator to require admin privileges"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Please log in to access this page.', 'warning')
+            return redirect(url_for('login'))
+        user = database.get_user_by_id(session['user_id'])
+        if not user or not user['is_admin']:
+            flash('Admin access required.', 'error')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def role_required(*roles):
+    """Decorator to require specific role(s)"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'user_id' not in session:
+                flash('Please log in to access this page.', 'warning')
+                return redirect(url_for('login'))
+            user = database.get_user_by_id(session['user_id'])
+            if not user:
+                flash('User not found.', 'error')
+                return redirect(url_for('login'))
+            user_role = user['role'] if user['role'] else 'user'
+            # Coordinators can access everything
+            if user_role == 'coordinator' or user_role in roles:
+                return f(*args, **kwargs)
+            flash(f'Access denied. Required role: {", ".join(roles)}', 'error')
+            return redirect(url_for('dashboard_redirect'))
+        return decorated_function
+    return decorator
+
+
 def get_current_user():
     """Get current logged-in user"""
     if 'user_id' in session:
@@ -93,8 +130,9 @@ def login():
         if user and verify_password(password, user['password_hash']):
             session['user_id'] = user['id']
             session['username'] = user['username']
+            session['role'] = user['role'] if user['role'] else 'user'
             flash(f'Welcome back, {username}!', 'success')
-            return redirect(url_for('index'))
+            return redirect(url_for('dashboard_redirect'))
         else:
             flash('Invalid username or password.', 'error')
 
@@ -108,6 +146,11 @@ def register():
         password = request.form.get('password', '')
         confirm = request.form.get('confirm', '')
         email = request.form.get('email', '').strip()
+        role = request.form.get('role', 'user')
+
+        # Validate role
+        if role not in ['coordinator', 'worker', 'user']:
+            role = 'user'
 
         if not username or not password:
             flash('Username and password are required.', 'error')
@@ -126,13 +169,17 @@ def register():
             return render_template('register.html')
 
         password_hash = hash_password(password)
-        user_id = database.create_user(username, password_hash, email or None)
+        user_id = database.create_user(username, password_hash, email or None, role)
 
         if user_id:
+            # If coordinator, also set as admin
+            if role == 'coordinator':
+                database.set_user_role(user_id, 'coordinator')
             session['user_id'] = user_id
             session['username'] = username
-            flash(f'Welcome to CampusGrid, {username}! You received 100 credits to start.', 'success')
-            return redirect(url_for('index'))
+            session['role'] = role
+            flash(f'Welcome to CampusGrid, {username}! You registered as {role}. You received 100 credits to start.', 'success')
+            return redirect(url_for('dashboard_redirect'))
         else:
             flash('Username already taken.', 'error')
 
@@ -148,21 +195,80 @@ def logout():
 
 # ==================== MAIN ROUTES ====================
 
+@app.route('/dashboard')
+@login_required
+def dashboard_redirect():
+    """Redirect users to their role-specific dashboard"""
+    user = get_current_user()
+    role = user['role'] if user and user['role'] else 'user'
+
+    if role == 'coordinator':
+        return redirect(url_for('coordinator_dashboard'))
+    elif role == 'worker':
+        return redirect(url_for('worker_dashboard'))
+    else:
+        return redirect(url_for('user_dashboard'))
+
+
 @app.route('/')
 @login_required
 def index():
+    """Main index - redirects to role-specific dashboard"""
+    return redirect(url_for('dashboard_redirect'))
+
+
+@app.route('/coordinator')
+@role_required('coordinator')
+def coordinator_dashboard():
+    """Coordinator dashboard - full system overview and management"""
     user = get_current_user()
     stats = database.get_queue_stats()
     leaderboard = database.get_leaderboard(10)
-    recent_jobs = database.get_jobs_by_status(limit=10)
+    recent_jobs = database.get_jobs_by_status(limit=20)
     workers = database.get_all_workers()
+    all_users = database.get_all_users()
 
-    return render_template('index.html',
+    return render_template('coordinator_dashboard.html',
                            user=user,
                            stats=stats,
                            leaderboard=leaderboard,
                            recent_jobs=recent_jobs,
-                           workers=workers)
+                           workers=workers,
+                           all_users=all_users)
+
+
+@app.route('/worker-dashboard')
+@role_required('worker')
+def worker_dashboard():
+    """Worker dashboard - manage own workers and view earnings"""
+    user = get_current_user()
+    my_workers = database.get_user_workers(user['id'])
+    stats = database.get_queue_stats()
+
+    # Calculate total earnings from workers
+    total_earnings = sum(w['total_credits_earned'] or 0 for w in my_workers)
+    total_jobs = sum(w['total_jobs_completed'] or 0 for w in my_workers)
+
+    return render_template('worker_dashboard.html',
+                           user=user,
+                           workers=my_workers,
+                           stats=stats,
+                           total_earnings=total_earnings,
+                           total_jobs=total_jobs)
+
+
+@app.route('/user-dashboard')
+@role_required('user')
+def user_dashboard():
+    """User dashboard - submit jobs and view results"""
+    user = get_current_user()
+    my_jobs = database.get_user_jobs(user['id'], limit=20)
+    stats = database.get_queue_stats()
+
+    return render_template('user_dashboard.html',
+                           user=user,
+                           jobs=my_jobs,
+                           stats=stats)
 
 
 @app.route('/jobs')
@@ -388,19 +494,34 @@ def remove_worker(worker_id):
     return redirect(url_for('my_workers'))
 
 
+@app.route('/coordinator/user/<user_id>/role', methods=['POST'])
+@role_required('coordinator')
+def change_user_role(user_id):
+    """Change a user's role (coordinator only)"""
+    new_role = request.form.get('role')
+    if new_role in ['coordinator', 'worker', 'user']:
+        if database.set_user_role(user_id, new_role):
+            flash(f'User role changed to {new_role}.', 'success')
+        else:
+            flash('Failed to change user role.', 'error')
+    else:
+        flash('Invalid role specified.', 'error')
+    return redirect(url_for('coordinator_dashboard'))
+
+
 @app.route('/admin/clear-history', methods=['POST'])
-@login_required
+@admin_required
 def clear_history():
-    """Clear all job history"""
+    """Clear all job history (admin only)"""
     database.clear_job_history()
     flash('Job history cleared.', 'success')
     return redirect(url_for('jobs'))
 
 
 @app.route('/admin/clear-workers', methods=['POST'])
-@login_required
+@admin_required
 def clear_workers():
-    """Clear all workers"""
+    """Clear all workers (admin only)"""
     database.clear_workers()
     flash('All workers cleared.', 'success')
     return redirect(url_for('workers'))

@@ -31,6 +31,7 @@ def init_db():
         cursor = conn.cursor()
 
         # Users table - authentication and credits
+        # Roles: 'coordinator' (admin), 'worker' (contributes compute), 'user' (submits jobs)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id TEXT PRIMARY KEY,
@@ -38,10 +39,24 @@ def init_db():
                 password_hash TEXT NOT NULL,
                 email TEXT,
                 credits INTEGER DEFAULT 100,
+                is_admin INTEGER DEFAULT 0,
+                role TEXT DEFAULT 'user',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 last_login DATETIME
             )
         ''')
+
+        # Add is_admin column if it doesn't exist (for existing databases)
+        try:
+            cursor.execute('ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0')
+        except:
+            pass  # Column already exists
+
+        # Add role column if it doesn't exist (for existing databases)
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'")
+        except:
+            pass  # Column already exists
 
         # Workers table - registered compute nodes
         cursor.execute('''
@@ -135,18 +150,18 @@ def init_db():
 
 # ==================== USER OPERATIONS ====================
 
-def create_user(username, password_hash, email=None):
+def create_user(username, password_hash, email=None, role='user'):
     """Create a new user with starting credits"""
     user_id = str(uuid.uuid4())
     with get_db() as conn:
         cursor = conn.cursor()
         try:
             cursor.execute('''
-                INSERT INTO users (id, username, password_hash, email, credits)
-                VALUES (?, ?, ?, ?, 100)
-            ''', (user_id, username, password_hash, email))
+                INSERT INTO users (id, username, password_hash, email, credits, role)
+                VALUES (?, ?, ?, ?, 100, ?)
+            ''', (user_id, username, password_hash, email, role))
             conn.commit()
-            log_activity('user_registered', user_id, f'New user: {username}')
+            log_activity('user_registered', user_id, f'New {role}: {username}')
             return user_id
         except sqlite3.IntegrityError:
             return None
@@ -200,6 +215,41 @@ def get_leaderboard(limit=10):
             ORDER BY u.credits DESC
             LIMIT ?
         ''', (limit,))
+        return cursor.fetchall()
+
+
+def set_user_role(user_id, role):
+    """Set a user's role (coordinator, worker, user)"""
+    valid_roles = ['coordinator', 'worker', 'user']
+    if role not in valid_roles:
+        return False
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('UPDATE users SET role = ? WHERE id = ?', (role, user_id))
+        # If coordinator, also set is_admin
+        if role == 'coordinator':
+            cursor.execute('UPDATE users SET is_admin = 1 WHERE id = ?', (user_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+def get_all_users():
+    """Get all users (for coordinator view)"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, username, email, credits, role, is_admin, created_at, last_login
+            FROM users
+            ORDER BY created_at DESC
+        ''')
+        return cursor.fetchall()
+
+
+def get_users_by_role(role):
+    """Get users filtered by role"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM users WHERE role = ?', (role,))
         return cursor.fetchall()
 
 
@@ -546,6 +596,28 @@ def add_credits(username, amount):
 
 
 # ==================== ADMIN FUNCTIONS ====================
+
+def set_user_admin(user_id, is_admin=True):
+    """Set a user as admin or remove admin"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('UPDATE users SET is_admin = ? WHERE id = ?', (1 if is_admin else 0, user_id))
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+def make_first_user_admin():
+    """Make the first registered user an admin"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM users ORDER BY created_at LIMIT 1')
+        row = cursor.fetchone()
+        if row:
+            cursor.execute('UPDATE users SET is_admin = 1 WHERE id = ?', (row['id'],))
+            conn.commit()
+            return True
+    return False
+
 
 def clear_job_history():
     """Clear all job history"""
