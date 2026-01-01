@@ -17,20 +17,30 @@ A decentralized peer-to-peer compute sharing platform for campus environments. S
 
 Watch CampusGrid in action - see how to submit jobs, run workers, and manage the P2P compute network:
 
-<!--
-TO EMBED THE VIDEO:
-1. Go to GitHub and edit this README
-2. Drag and drop demo.mp4 into the editor below
-3. GitHub will generate a URL like: https://github.com/user-attachments/assets/xxxxx
-4. Paste that URL here and the video will play inline!
+[![CampusGrid Demo](https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
 
-Example format:
-https://github.com/user-attachments/assets/your-video-id-here
+**▶️ Click the thumbnail above to watch the demo!**
 
-For now, you can watch the demo here:
--->
+---
 
-[📺 **Watch Demo Video** (demo.mp4)](https://github.com/Arijit2772-dev/p2p-grid/blob/main/demo.mp4)
+### 📤 How to Add Your YouTube Video:
+
+1. **Upload demo.mp4 to YouTube**:
+   - Go to [YouTube Studio](https://studio.youtube.com)
+   - Click "Create" → "Upload video"
+   - Upload `demo.mp4` from your project folder
+   - Set title: "CampusGrid - P2P Compute Sharing Network Demo"
+   - Set visibility: **Unlisted** (for project submission) or **Public**
+
+2. **Get the Video ID**:
+   - After upload, your URL will be: `https://www.youtube.com/watch?v=ABC123XYZ`
+   - Copy the part after `v=` (that's your VIDEO_ID)
+
+3. **Update README**:
+   - Replace both instances of `YOUR_VIDEO_ID` above with your actual video ID
+   - The thumbnail and link will work automatically!
+
+**Example**: If your URL is `https://www.youtube.com/watch?v=dQw4w9WgXcQ`, replace `YOUR_VIDEO_ID` with `dQw4w9WgXcQ`
 
 ## Features
 
