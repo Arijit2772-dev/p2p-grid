@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: campusgrid
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DASHBOARD_PORT
+        value: 10000
+      - key: MANAGER_PORT
+        value: 10001
+      - key: DASHBOARD_HOST
+        value: 0.0.0.0
+      - key: MANAGER_HOST
+        value: 0.0.0.0
+      - key: SECRET_KEY
+        generateValue: true
