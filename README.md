@@ -13,6 +13,14 @@ A decentralized peer-to-peer compute sharing platform for campus environments. S
 
 > **Note:** First load may take 30-60 seconds as the server wakes up (free tier)
 
+## 🎥 Demo Video
+
+Watch CampusGrid in action:
+
+[**View Demo Video (demo.mp4)**](./demo.mp4)
+
+See how to submit jobs, run workers, and manage the P2P compute network.
+
 ## Features
 
 - **P2P Resource Sharing**: Pool compute resources across campus
