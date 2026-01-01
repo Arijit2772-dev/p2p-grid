@@ -4,11 +4,17 @@ A decentralized peer-to-peer compute sharing platform for campus environments. S
 
 ## 🎯 Live Demo
 
-**Try CampusGrid now:** [Visit Live Dashboard](#) *(Deploy first and add your URL here)*
+**Try CampusGrid now:**
 
-- No installation required
+- **Primary:** [https://p2p-grid.onrender.com](https://p2p-grid.onrender.com)
+- **Alternative:** [https://campusgrid.up.railway.app](https://campusgrid.up.railway.app)
+
+✨ **No installation required** - Just visit, register, and start using!
 - Register and get 100 free credits
 - Submit jobs and see results in real-time
+- Explore the dashboard and leaderboard
+
+> **Note:** First load may take 30-60 seconds as the server wakes up (free tier)
 
 ## Features
 
@@ -54,7 +60,7 @@ A decentralized peer-to-peer compute sharing platform for campus environments. S
 
 ### Option 1: Use the Live Demo (Easiest)
 
-1. **Visit the Dashboard**: [Your Deployed URL]
+1. **Visit the Dashboard**: [https://p2p-grid.onrender.com](https://p2p-grid.onrender.com)
 2. **Register an Account**:
    - Click "Register"
    - Choose your role: User (submit jobs) or Worker (earn credits)
