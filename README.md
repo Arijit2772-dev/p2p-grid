@@ -15,11 +15,11 @@ A decentralized peer-to-peer compute sharing platform for campus environments. S
 
 ## 🎥 Demo Video
 
-Watch CampusGrid in action:
+Watch CampusGrid in action - see how to submit jobs, run workers, and manage the P2P compute network:
 
-[**View Demo Video (demo.mp4)**](./demo.mp4)
+<video src="demo.mp4" controls></video>
 
-See how to submit jobs, run workers, and manage the P2P compute network.
+**Alternative:** If video doesn't play inline, [click here to view demo.mp4](https://github.com/Arijit2772-dev/p2p-grid/blob/main/demo.mp4)
 
 ## Features
 
