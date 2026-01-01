@@ -4,10 +4,7 @@ A decentralized peer-to-peer compute sharing platform for campus environments. S
 
 ## 🎯 Live Demo
 
-**Try CampusGrid now:**
-
-- **Primary:** [https://p2p-grid.onrender.com](https://p2p-grid.onrender.com)
-- **Alternative:** [https://campusgrid.up.railway.app](https://campusgrid.up.railway.app)
+**Try CampusGrid now:** [https://p2p-grid.onrender.com](https://p2p-grid.onrender.com)
 
 ✨ **No installation required** - Just visit, register, and start using!
 - Register and get 100 free credits
