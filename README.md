@@ -17,9 +17,20 @@ A decentralized peer-to-peer compute sharing platform for campus environments. S
 
 Watch CampusGrid in action - see how to submit jobs, run workers, and manage the P2P compute network:
 
-<video src="demo.mp4" controls></video>
+<!--
+TO EMBED THE VIDEO:
+1. Go to GitHub and edit this README
+2. Drag and drop demo.mp4 into the editor below
+3. GitHub will generate a URL like: https://github.com/user-attachments/assets/xxxxx
+4. Paste that URL here and the video will play inline!
 
-**Alternative:** If video doesn't play inline, [click here to view demo.mp4](https://github.com/Arijit2772-dev/p2p-grid/blob/main/demo.mp4)
+Example format:
+https://github.com/user-attachments/assets/your-video-id-here
+
+For now, you can watch the demo here:
+-->
+
+[📺 **Watch Demo Video** (demo.mp4)](https://github.com/Arijit2772-dev/p2p-grid/blob/main/demo.mp4)
 
 ## Features
 
